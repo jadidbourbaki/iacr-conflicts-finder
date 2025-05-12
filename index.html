@@ -19,21 +19,22 @@
 
   <script>
     async function fetchPCMembers() {
-      const url = "https://asiacrypt.iacr.org/2025/callforpapers.php";
+      const url = "https://asiacrypt.iacr.org/2025/json/comm.json";
       const res = await fetch(url);
-      const html = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const pcText = Array.from(doc.querySelectorAll("ul"))
-        .map(ul => ul.innerText)
-        .find(text => text.includes("Xiaoyun Wang")); // crude PC section filter
-
-      const lines = pcText.split("\n").filter(line => line.includes("(") && line.includes(")"));
-      return lines.map(line => {
-        const match = line.match(/^(.*?)\s+\((.*?)\)$/);
-        if (!match) return null;
-        return { name: match[1].trim(), affiliation: match[2].trim() };
-      }).filter(x => x);
+      const data = await res.json();
+    
+      const members = [];
+    
+      for (const area of data.committee) {
+        for (const person of area.members) {
+          members.push({
+            name: person.name,
+            affiliation: person.affiliation
+          });
+        }
+      }
+    
+      return members;
     }
 
     async function fetchPublications(authorName) {
