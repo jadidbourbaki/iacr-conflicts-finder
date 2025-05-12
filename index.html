@@ -56,8 +56,7 @@
 
       for (const inputAuthor of inputAuthors) {
         const pubs = await fetchPublications(inputAuthor.name);
-        const recentPubs = pubs.filter(p => thisYear - p.year <= 3);
-
+        // const recentPubs = pubs.filter(p => thisYear - p.year <= 3);
         const coauthors = new Set(recentPubs.flatMap(p => p.authors.filter(a => a !== inputAuthor.name)));
 
         for (const pc of pcMembers) {
@@ -67,14 +66,14 @@
           const sameAffil = pc.affiliation && inputAuthor.affiliation &&
                             pc.affiliation.toLowerCase().includes(inputAuthor.affiliation.toLowerCase());
 
-          if (coauthorCount >= 2 || sameAffil) {
+          if (coauthorCount >= 1 || sameAffil) {
             conflict = {
               author: inputAuthor.name,
               pcName: pc.name,
               pcAffil: pc.affiliation,
               type: []
             };
-            if (coauthorCount >= 2) conflict.type.push("Co-authored ≥2 papers in last 3 years");
+            if (coauthorCount >= 1) conflict.type.push("Co-authored paper");
             if (sameAffil) conflict.type.push("Shared affiliation");
             results.push(conflict);
           }
