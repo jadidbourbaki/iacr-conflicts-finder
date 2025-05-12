@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>COI Finder (Co-authorship)</title>
+  <title>Asiacrypt 2025 COI Finder</title>
   <style>
     body { font-family: sans-serif; margin: 2em; }
     textarea { width: 100%; height: 150px; }
@@ -10,14 +10,32 @@
   </style>
 </head>
 <body>
-  <h1>COI Finder: Co-authorship Detector</h1>
-  <p>Enter one author name per line (format: First Last)</p>
+  <h1>COI Finder: Asiacrypt 2025 PC Conflicts</h1>
+  <p>Enter one author per line, format: <strong>Name | Affiliation</strong></p>
   <textarea id="authorsInput"></textarea><br><br>
-  <button onclick="findConflicts()">Find Conflicts</button>
+  <button onclick="findConflicts()">Find Conflicts with PC</button>
   <h2>Results:</h2>
   <div id="results"></div>
 
   <script>
+    async function fetchPCMembers() {
+      const url = "https://asiacrypt.iacr.org/2025/callforpapers.php";
+      const res = await fetch(url);
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const pcText = Array.from(doc.querySelectorAll("ul"))
+        .map(ul => ul.innerText)
+        .find(text => text.includes("Xiaoyun Wang")); // crude PC section filter
+
+      const lines = pcText.split("\n").filter(line => line.includes("(") && line.includes(")"));
+      return lines.map(line => {
+        const match = line.match(/^(.*?)\s+\((.*?)\)$/);
+        if (!match) return null;
+        return { name: match[1].trim(), affiliation: match[2].trim() };
+      }).filter(x => x);
+    }
+
     async function fetchPublications(authorName) {
       const url = `https://dblp.org/search/publ/api?q=author:${encodeURIComponent(authorName)}&h=1000&format=json`;
       const res = await fetch(url);
@@ -34,40 +52,52 @@
 
     async function findConflicts() {
       const input = document.getElementById("authorsInput").value.trim();
-      const authorList = input.split("\n").map(a => a.trim()).filter(a => a);
-      const pubMap = new Map(); // author → list of recent co-authors
+      const inputAuthors = input.split("\n").map(line => {
+        const [name, affiliation] = line.split("|").map(s => s.trim());
+        return { name, affiliation };
+      });
 
+      const pcMembers = await fetchPCMembers();
       const thisYear = new Date().getFullYear();
+      const results = [];
 
-      for (const author of authorList) {
-        const pubs = await fetchPublications(author);
+      for (const inputAuthor of inputAuthors) {
+        const pubs = await fetchPublications(inputAuthor.name);
         const recentPubs = pubs.filter(p => thisYear - p.year <= 3);
-        const coauthors = recentPubs.flatMap(p => p.authors.filter(a => a !== author));
-        if (!pubMap.has(author)) pubMap.set(author, []);
-        pubMap.get(author).push(...coauthors);
-      }
 
-      // Count co-authored papers between pairs
-      const conflicts = [];
-      const names = Array.from(pubMap.keys());
-      for (let i = 0; i < names.length; i++) {
-        for (let j = i + 1; j < names.length; j++) {
-          const a = names[i], b = names[j];
-          const count = pubMap.get(a).filter(name => name === b).length +
-                        pubMap.get(b).filter(name => name === a).length;
-          if (count >= 2) conflicts.push({ a, b, count });
+        const coauthors = new Set(recentPubs.flatMap(p => p.authors.filter(a => a !== inputAuthor.name)));
+
+        for (const pc of pcMembers) {
+          let conflict = null;
+          let coauthorCount = [...coauthors].filter(name => name === pc.name).length;
+
+          const sameAffil = pc.affiliation && inputAuthor.affiliation &&
+                            pc.affiliation.toLowerCase().includes(inputAuthor.affiliation.toLowerCase());
+
+          if (coauthorCount >= 2 || sameAffil) {
+            conflict = {
+              author: inputAuthor.name,
+              pcName: pc.name,
+              pcAffil: pc.affiliation,
+              type: []
+            };
+            if (coauthorCount >= 2) conflict.type.push("Co-authored ≥2 papers in last 3 years");
+            if (sameAffil) conflict.type.push("Shared affiliation");
+            results.push(conflict);
+          }
         }
       }
 
       // Render results
       const out = document.getElementById("results");
-      if (conflicts.length === 0) {
-        out.innerHTML = "<p>No conflicts detected (≥2 co-authored papers in 3 years).</p>";
+      if (results.length === 0) {
+        out.innerHTML = "<p>No conflicts detected with the Asiacrypt 2025 PC.</p>";
         return;
       }
-      let html = "<table><tr><th>Author A</th><th>Author B</th><th>Co-authored Papers (last 3 years)</th></tr>";
-      for (const {a, b, count} of conflicts) {
-        html += `<tr><td>${a}</td><td>${b}</td><td>${count}</td></tr>`;
+
+      let html = "<table><tr><th>Input Author</th><th>PC Member</th><th>PC Affiliation</th><th>Conflict Type</th></tr>";
+      for (const r of results) {
+        html += `<tr><td>${r.author}</td><td>${r.pcName}</td><td>${r.pcAffil}</td><td>${r.type.join(", ")}</td></tr>`;
       }
       html += "</table>";
       out.innerHTML = html;
