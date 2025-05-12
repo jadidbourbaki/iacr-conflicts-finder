@@ -57,7 +57,7 @@
       for (const inputAuthor of inputAuthors) {
         const pubs = await fetchPublications(inputAuthor.name);
         // const recentPubs = pubs.filter(p => thisYear - p.year <= 3);
-        const coauthors = new Set(recentPubs.flatMap(p => p.authors.filter(a => a !== inputAuthor.name)));
+        const coauthors = new Set(pubs.flatMap(p => p.authors.filter(a => a !== inputAuthor.name)));
 
         for (const pc of pcMembers) {
           let conflict = null;
