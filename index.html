@@ -23,18 +23,10 @@
       const res = await fetch(url);
       const data = await res.json();
     
-      const members = [];
-    
-      for (const area of data.committee) {
-        for (const person of area.members) {
-          members.push({
-            name: person.name,
-            affiliation: person.affiliation
-          });
-        }
-      }
-    
-      return members;
+      return data.committee.map(member => ({
+        name: member.name,
+        affiliation: member.affiliation || ""
+      }));
     }
 
     async function fetchPublications(authorName) {
